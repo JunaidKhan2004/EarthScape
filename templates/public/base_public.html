@@ -3,7 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}EarthScape Climate Agency{% endblock %}</title>
+  <title>{% block title %}EarthScape Climate Agency — Live Weather & Climate Forecasts{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}EarthScape Climate Agency delivers live weather conditions and admin-reviewed 7-day climate forecasts for any city, powered by real ingested climate data and machine learning.{% endblock %}">
+  <meta name="robots" content="{% block meta_robots %}index, follow{% endblock %}">
+  <link rel="canonical" href="{% block canonical_url %}{{ request.url_root.rstrip('/') }}{{ request.path }}{% endblock %}">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="EarthScape Climate Agency">
+  <meta property="og:title" content="{% block og_title %}EarthScape Climate Agency — Live Weather & Climate Forecasts{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Live weather conditions and admin-reviewed 7-day climate forecasts for any city, powered by real ingested climate data and machine learning.{% endblock %}">
+  <meta property="og:url" content="{{ request.url_root.rstrip('/') }}{{ request.path }}">
+  <meta property="og:image" content="{% block og_image %}{{ request.url_root.rstrip('/') }}{{ url_for('static', filename='images/logo.png') }}{% endblock %}">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{% block twitter_title %}EarthScape Climate Agency — Live Weather & Climate Forecasts{% endblock %}">
+  <meta name="twitter:description" content="{% block twitter_description %}Live weather conditions and admin-reviewed 7-day climate forecasts for any city, powered by real ingested climate data and machine learning.{% endblock %}">
+  <meta name="twitter:image" content="{% block twitter_image %}{{ request.url_root.rstrip('/') }}{{ url_for('static', filename='images/logo.png') }}{% endblock %}">
+
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo.png') }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">

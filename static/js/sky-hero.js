@@ -1,9 +1,13 @@
-// Live sky widget: real clock + day/night lighting + a real WebGL
-// volumetric cloud field (Vanta.js / Three.js) reacting to live weather.
-// Used by both the admin/analyst dashboard (fixed to Karachi) and the
-// public weather page (any searched location).
-
-let vantaEffect = null;
+// Live sky widget: real clock + day/night lighting + lightweight CSS-only
+// drifting cloud layers reacting to live weather. Used by both the
+// admin/analyst dashboard (fixed to Karachi) and the public weather page
+// (any searched location).
+//
+// This used to render a real WebGL volumetric cloud field via Vanta.js /
+// Three.js, but that meant continuous per-frame 3D geometry + shading on
+// the GPU for as long as the page was open -- too heavy on modest hardware
+// and integrated GPUs (noticeable fan/heat and jank elsewhere on the page).
+// Plain CSS transform/opacity animations composite almost for free.
 
 function karachiNow() {
   // Asia/Karachi is UTC+5, no DST.
@@ -34,23 +38,7 @@ function isNightHour(hour) {
   return hour < 6 || hour >= 19;
 }
 
-// Vanta's CLOUDS effect takes numeric hex colors (0xRRGGBB), not CSS strings.
-const SKY_PALETTES = {
-  day: {
-    clear: { skyColor: 0x5fb1d6, cloudColor: 0xffffff, cloudShadowColor: 0x9fb3bd, sunColor: 0xffcf5c, sunGlareColor: 0xff9d4d, sunlightColor: 0xffe8b0, speed: 1.1 },
-    cloudy: { skyColor: 0x7d94a0, cloudColor: 0xe7edee, cloudShadowColor: 0x62727a, sunColor: 0xd8c8a8, sunGlareColor: 0xb7a487, sunlightColor: 0xcfd9db, speed: 1.4 },
-    rain: { skyColor: 0x4c5c68, cloudColor: 0xb7c1c6, cloudShadowColor: 0x35424a, sunColor: 0x9aa6ac, sunGlareColor: 0x808f96, sunlightColor: 0x99a7ac, speed: 1.9 },
-    storm: { skyColor: 0x2c3742, cloudColor: 0x808d94, cloudShadowColor: 0x1c242b, sunColor: 0x6b767c, sunGlareColor: 0x565f66, sunlightColor: 0x6d787d, speed: 2.4 },
-  },
-  night: {
-    clear: { skyColor: 0x0c1a30, cloudColor: 0x24344c, cloudShadowColor: 0x081120, sunColor: 0xbfd0e8, sunGlareColor: 0x8fa3c2, sunlightColor: 0x33445f, speed: 0.7 },
-    cloudy: { skyColor: 0x121e2a, cloudColor: 0x33465a, cloudShadowColor: 0x0a121b, sunColor: 0x7f93a8, sunGlareColor: 0x5c6d80, sunlightColor: 0x384a5c, speed: 1.0 },
-    rain: { skyColor: 0x0a121c, cloudColor: 0x293846, cloudShadowColor: 0x050a10, sunColor: 0x5b6b78, sunGlareColor: 0x475462, sunlightColor: 0x2c3946, speed: 1.6 },
-    storm: { skyColor: 0x05090e, cloudColor: 0x1c262f, cloudShadowColor: 0x02050a, sunColor: 0x3d4750, sunGlareColor: 0x2f3841, sunlightColor: 0x202932, speed: 2.1 },
-  },
-};
-
-// Clear-sky CSS gradients (no VANTA clouds -- a clear sky shouldn't show
+// Clear-sky CSS gradients (no cloud layer -- a clear sky shouldn't show
 // cloud shapes at all). Day = bright blue with a warm sun glow in one
 // corner; night = deep navy with a cool moon glow.
 const CLEAR_SKY_GRADIENTS = {
@@ -75,44 +63,22 @@ function paintSky(hero, isNight, condition) {
   }
 }
 
-function initVantaClouds(isNight, condition) {
+// Respect the OS-level "reduce motion" accessibility setting -- skip the
+// drifting cloud animation (still show static cloud shapes) if set.
+const PREFERS_REDUCED_MOTION = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function initCssClouds(condition) {
   const target = document.getElementById('vantaClouds');
-  if (!target || typeof VANTA === 'undefined') return;
+  if (!target) return;
 
-  // Clear sky: no cloud shapes at all -- tear down VANTA and let the CSS
-  // gradient show through instead.
-  if (condition === 'clear') {
-    if (vantaEffect) {
-      vantaEffect.destroy();
-      vantaEffect = null;
-    }
-    return;
-  }
+  target.classList.remove('clouds-cloudy', 'clouds-rain', 'clouds-storm');
+  target.classList.toggle('clouds-animated', !PREFERS_REDUCED_MOTION);
 
-  const period = isNight ? 'night' : 'day';
-  const palette = (SKY_PALETTES[period] && SKY_PALETTES[period][condition]) || SKY_PALETTES[period].cloudy;
+  // Clear sky: no cloud shapes at all -- the CSS gradient shows through.
+  if (condition === 'clear') return;
 
-  if (vantaEffect) {
-    vantaEffect.setOptions(palette);
-    return;
-  }
-
-  vantaEffect = VANTA.CLOUDS({
-    el: target,
-    mouseControls: false,
-    touchControls: false,
-    gyroControls: false,
-    minHeight: 200,
-    minWidth: 200,
-    backgroundAlpha: 1,
-    // Render at a lower internal resolution -- VANTA's WebGL cloud field is
-    // the heaviest thing on this page (continuous per-frame 3D geometry),
-    // and dropping scale cuts GPU load a lot with almost no visible
-    // difference once it's blurred/composited into the page.
-    scale: 0.65,
-    scaleMobile: 0.55,
-    ...palette,
-  });
+  const bucket = (condition === 'rain' || condition === 'storm') ? condition : 'cloudy';
+  target.classList.add('clouds-' + bucket);
 }
 
 function renderStars(isNight) {
@@ -192,7 +158,7 @@ function applySkyState(hero) {
   const condition = hero.dataset.condition || 'cloudy';
 
   paintSky(hero, isNight, condition);
-  initVantaClouds(isNight, condition);
+  initCssClouds(condition);
   renderStars(isNight && condition !== 'storm');
   renderRain(condition === 'rain' || condition === 'storm');
   renderLightning(condition === 'storm', hero);
@@ -224,8 +190,5 @@ function initSkyHero(options = {}) {
     }, 600000);
   }
 
-  window.addEventListener('beforeunload', () => {
-    if (vantaEffect) vantaEffect.destroy();
-    stopLightning();
-  });
+  window.addEventListener('beforeunload', stopLightning);
 }

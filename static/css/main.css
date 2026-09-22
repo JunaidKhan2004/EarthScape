@@ -1600,6 +1600,37 @@ svg { width: 18px; height: 18px; stroke-width: 2px; flex-shrink: 0; }
   flex: 1 1 auto;
 }
 
+.city-suggestions {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 0.4rem;
+  list-style: none;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 12px);
+  box-shadow: var(--shadow-lg);
+  max-height: 260px;
+  overflow-y: auto;
+}
+.city-suggestions li {
+  padding: 0.65rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.city-suggestions li:hover,
+.city-suggestions li.is-active {
+  background: var(--surface);
+}
+
 .location-search input {
   flex: 1;
   width: 100%;
@@ -1778,7 +1809,68 @@ svg { width: 18px; height: 18px; stroke-width: 2px; flex-shrink: 0; }
   inset: 0;
   z-index: 0;
   opacity: 1;
+  overflow: hidden;
   transition: opacity 0.6s ease;
+}
+
+/* Lightweight CSS-only clouds: a few soft radial-gradient "puffs" per layer,
+   drifting via transform (GPU-compositor only, no per-frame layout/paint or
+   WebGL) -- replaces what used to be a real-time 3D cloud simulation. */
+.vanta-target::before,
+.vanta-target::after {
+  content: "";
+  position: absolute;
+  top: -10%;
+  left: -20%;
+  width: 140%;
+  height: 120%;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  will-change: transform;
+}
+
+.vanta-target::before {
+  background-image:
+    radial-gradient(ellipse 22% 14% at 18% 30%, color-mix(in srgb, var(--text-muted) 55%, transparent) 0%, transparent 70%),
+    radial-gradient(ellipse 26% 16% at 55% 55%, color-mix(in srgb, var(--text-muted) 45%, transparent) 0%, transparent 70%),
+    radial-gradient(ellipse 18% 12% at 82% 25%, color-mix(in srgb, var(--text-muted) 50%, transparent) 0%, transparent 70%);
+}
+.vanta-target::after {
+  background-image:
+    radial-gradient(ellipse 20% 13% at 35% 70%, color-mix(in srgb, var(--text-muted) 35%, transparent) 0%, transparent 70%),
+    radial-gradient(ellipse 24% 15% at 70% 40%, color-mix(in srgb, var(--text-muted) 30%, transparent) 0%, transparent 70%);
+}
+
+.vanta-target.clouds-cloudy::before,
+.vanta-target.clouds-cloudy::after,
+.vanta-target.clouds-rain::before,
+.vanta-target.clouds-rain::after,
+.vanta-target.clouds-storm::before,
+.vanta-target.clouds-storm::after {
+  opacity: 1;
+}
+.vanta-target.clouds-rain::before,
+.vanta-target.clouds-rain::after {
+  opacity: 0.85;
+  filter: brightness(0.75);
+}
+.vanta-target.clouds-storm::before,
+.vanta-target.clouds-storm::after {
+  opacity: 0.9;
+  filter: brightness(0.55);
+}
+
+.vanta-target.clouds-animated::before { animation: drift-clouds-back 90s linear infinite; }
+.vanta-target.clouds-animated::after { animation: drift-clouds-front 55s linear infinite; }
+
+@keyframes drift-clouds-back {
+  from { transform: translateX(0); }
+  to { transform: translateX(15%); }
+}
+@keyframes drift-clouds-front {
+  from { transform: translateX(0); }
+  to { transform: translateX(-18%); }
 }
 
 /* subtle readability veil over the 3D cloud render, under the text content --

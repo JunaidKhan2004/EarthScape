@@ -40,38 +40,47 @@ def _condition_label(code: int) -> str:
     return labels[bucket]
 
 
-def geocode_city(query: str) -> dict | None:
-    """Looks up a city name via Open-Meteo's free geocoding API.
-    Returns {"label", "lat", "lon"} for the best match, or None if not found."""
+def _place_to_dict(place: dict) -> dict:
+    parts = [place.get("name")]
+    if place.get("admin1"):
+        parts.append(place["admin1"])
+    if place.get("country"):
+        parts.append(place["country"])
+
+    return {
+        "label": ", ".join(p for p in parts if p),
+        "lat": place["latitude"],
+        "lon": place["longitude"],
+    }
+
+
+def search_cities(query: str, limit: int = 6) -> list[dict]:
+    """Looks up a city name via Open-Meteo's free geocoding API and returns
+    up to `limit` matches (for an autocomplete dropdown), each shaped like
+    {"label", "lat", "lon"}. Empty list if nothing matches or the lookup
+    fails."""
     query = query.strip()
     if not query:
-        return None
+        return []
 
     url = (
         "https://geocoding-api.open-meteo.com/v1/search"
-        f"?name={urllib.parse.quote(query)}&count=1&language=en&format=json"
+        f"?name={urllib.parse.quote(query)}&count={limit}&language=en&format=json"
     )
     try:
         with urllib.request.urlopen(url, timeout=4) as resp:
             payload = json.loads(resp.read().decode("utf-8"))
         results = payload.get("results") or []
-        if not results:
-            return None
-
-        place = results[0]
-        parts = [place.get("name")]
-        if place.get("admin1"):
-            parts.append(place["admin1"])
-        if place.get("country"):
-            parts.append(place["country"])
-
-        return {
-            "label": ", ".join(p for p in parts if p),
-            "lat": place["latitude"],
-            "lon": place["longitude"],
-        }
+        return [_place_to_dict(place) for place in results]
     except Exception:
-        return None
+        return []
+
+
+def geocode_city(query: str) -> dict | None:
+    """Looks up a city name via Open-Meteo's free geocoding API.
+    Returns {"label", "lat", "lon"} for the best match, or None if not found."""
+    matches = search_cities(query, limit=1)
+    return matches[0] if matches else None
 
 
 def get_weather(lat: float = KARACHI_LAT, lon: float = KARACHI_LON, label: str = KARACHI_LABEL) -> dict:

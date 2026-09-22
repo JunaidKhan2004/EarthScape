@@ -1,6 +1,6 @@
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, Response
 
-from app.weather.service import get_weather, geocode_city, KARACHI_LAT, KARACHI_LON, KARACHI_LABEL
+from app.weather.service import get_weather, geocode_city, search_cities, KARACHI_LAT, KARACHI_LON, KARACHI_LABEL
 from app.predictions.models import list_approved_for_public
 
 public_bp = Blueprint("public", __name__, url_prefix="/")
@@ -11,6 +11,57 @@ def index():
     weather = get_weather(KARACHI_LAT, KARACHI_LON, KARACHI_LABEL)
     predictions = list_approved_for_public()
     return render_template("public/index.html", weather=weather, predictions=predictions)
+
+
+@public_bp.route("/robots.txt")
+def robots_txt():
+    """Only the public landing page is safe to index -- everything else
+    requires login and should never appear in search results."""
+    lines = [
+        "User-agent: *",
+        "Disallow: /auth",
+        "Disallow: /dashboard",
+        "Disallow: /ingestion",
+        "Disallow: /processing",
+        "Disallow: /ml",
+        "Disallow: /viz",
+        "Disallow: /alerts",
+        "Disallow: /predictions",
+        "Disallow: /realtime",
+        "Disallow: /support",
+        "Disallow: /users",
+        "Disallow: /settings",
+        "Disallow: /api/",
+        "",
+        f"Sitemap: {request.url_root.rstrip('/')}/sitemap.xml",
+    ]
+    return Response("\n".join(lines), mimetype="text/plain")
+
+
+@public_bp.route("/sitemap.xml")
+def sitemap_xml():
+    base = request.url_root.rstrip("/")
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        "  <url>\n"
+        f"    <loc>{base}/</loc>\n"
+        "    <changefreq>daily</changefreq>\n"
+        "    <priority>1.0</priority>\n"
+        "  </url>\n"
+        "</urlset>\n"
+    )
+    return Response(xml, mimetype="application/xml")
+
+
+@public_bp.route("/api/city-search")
+def api_city_search():
+    """Autocomplete: returns up to 6 matching cities for the query typed
+    so far, for the public weather search dropdown."""
+    query = request.args.get("q", "").strip()
+    if len(query) < 2:
+        return jsonify([])
+    return jsonify(search_cities(query, limit=6))
 
 
 @public_bp.route("/api/public-weather")
