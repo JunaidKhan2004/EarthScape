@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}User Management - EarthScape{% endblock %}
+{% block content %}
+<h1><i data-lucide="users"></i> User Management</h1>
+<p>Administrators can review registered users and assign roles. Analysts can view and analyze data but cannot ingest data, run processing jobs, or manage users/alerts.</p>
+
+<table class="table">
+  <thead><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr></thead>
+  <tbody>
+    {% for u in users %}
+    <tr>
+      <td>{{ u.name }}</td>
+      <td>{{ u.email }}</td>
+      <td><span class="role-badge">{{ u.role }}</span></td>
+      <td>
+        {% if u.id != current_user.id %}
+        <form method="post" action="{{ url_for('users.set_role', user_id=u.id) }}" class="inline-resolve-form">
+          <select name="role">
+            <option value="analyst" {{ "selected" if u.role == "analyst" else "" }}>analyst</option>
+            <option value="administrator" {{ "selected" if u.role == "administrator" else "" }}>administrator</option>
+          </select>
+          <button type="submit"><i data-lucide="check"></i></button>
+        </form>
+        {% else %}
+        <span class="muted">(you)</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Visualization - EarthScape{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1><i data-lucide="bar-chart-3"></i> Climate Data Visualization</h1>
+    <p>Live charts built from the latest Processing and ML runs.</p>
+  </div>
+  <label class="toolbar-field">
+    <span>Source</span>
+    <select id="sourceSelect" class="select-inline">
+      {% for st in source_types %}
+        <option value="{{ st }}">{{ st.replace('_', ' ') }}</option>
+      {% endfor %}
+    </select>
+  </label>
+</div>
+
+<div class="cards cards-2col">
+  <div class="card chart-card">
+    <h3><i data-lucide="bar-chart-2"></i> Mean / Min / Max by group</h3>
+    <div class="chart-wrap"><canvas id="groupStatsChart"></canvas></div>
+  </div>
+  <div class="card chart-card">
+    <h3><i data-lucide="trending-up"></i> Trend: last value vs predicted next</h3>
+    <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+  </div>
+</div>
+
+<div class="card section-spaced">
+  <h3><i data-lucide="scan-search"></i> ML-flagged anomalies <span class="count-badge" id="anomalyCount">0</span></h3>
+  <ul id="anomalyList" class="plain-list"></ul>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+<script>
+let groupChart, trendChart;
+
+function chartColors() {
+  const styles = getComputedStyle(document.documentElement);
+  return {
+    text: styles.getPropertyValue('--text-muted').trim() || '#9FB8D4',
+    grid: styles.getPropertyValue('--border').trim() || 'rgba(94, 168, 224, 0.22)',
+  };
+}
+
+async function loadData(sourceType) {
+  const res = await fetch(`/viz/api/chart-data/${sourceType}`);
+  const data = await res.json();
+  const c = chartColors();
+
+  const groupCtx = document.getElementById('groupStatsChart');
+  if (groupChart) groupChart.destroy();
+  groupChart = new Chart(groupCtx, {
+    type: 'bar',
+    data: {
+      labels: data.group_stats.labels,
+      datasets: [
+        { label: 'Mean', data: data.group_stats.means, backgroundColor: '#B6BBC4', borderRadius: 4 },
+        { label: 'Min', data: data.group_stats.mins, backgroundColor: '#34D399', borderRadius: 4 },
+        { label: 'Max', data: data.group_stats.maxs, backgroundColor: '#FB7185', borderRadius: 4 },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 500 },
+      plugins: { legend: { labels: { color: c.text, boxWidth: 12, padding: 14 } } },
+      scales: {
+        x: { ticks: { color: c.text }, grid: { color: c.grid } },
+        y: { ticks: { color: c.text }, grid: { color: c.grid } },
+      },
+    },
+  });
+
+  const trendCtx = document.getElementById('trendChart');
+  if (trendChart) trendChart.destroy();
+  trendChart = new Chart(trendCtx, {
+    type: 'line',
+    data: {
+      labels: data.trend.labels,
+      datasets: [
+        { label: 'Last value', data: data.trend.last_values, borderColor: '#B6BBC4', backgroundColor: 'transparent', tension: 0.35 },
+        { label: 'Predicted next', data: data.trend.predicted_next, borderColor: '#FBBF24', backgroundColor: 'transparent', borderDash: [5, 5], tension: 0.35 },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 500 },
+      plugins: { legend: { labels: { color: c.text, boxWidth: 12, padding: 14 } } },
+      scales: {
+        x: { ticks: { color: c.text }, grid: { color: c.grid } },
+        y: { ticks: { color: c.text }, grid: { color: c.grid } },
+      },
+    },
+  });
+
+  document.getElementById('anomalyCount').textContent = data.anomaly_count;
+  const list = document.getElementById('anomalyList');
+  list.innerHTML = '';
+  if (data.anomaly_points.length === 0) {
+    list.innerHTML = '<li class="empty-hint">No anomalies flagged yet.</li>';
+  }
+  data.anomaly_points.forEach(p => {
+    const li = document.createElement('li');
+    li.innerHTML = `<strong>${p.group}</strong><span>${p.x}</span><span class="anomaly-value">${p.y}</span>`;
+    li.className = 'anomaly-row';
+    list.appendChild(li);
+  });
+}
+
+const select = document.getElementById('sourceSelect');
+select.addEventListener('change', () => loadData(select.value));
+loadData(select.value);
+
+// Redraw with correct colors when the theme changes.
+const themeBtn = document.getElementById('themeToggle');
+if (themeBtn) themeBtn.addEventListener('click', () => setTimeout(() => loadData(select.value), 50));
+</script>
+{% endblock %}

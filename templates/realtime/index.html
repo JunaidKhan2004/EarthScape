@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Real-time Processing - EarthScape{% endblock %}
+{% block content %}
+<h1><i data-lucide="radio"></i> Real-time Data Processing</h1>
+<p>Simulates a live feed: every 30 seconds, new records are ingested and the MapReduce + alert pipeline re-runs automatically for the selected source.</p>
+
+<div class="cards">
+  {% for st in source_types %}
+  <div class="card">
+    <h3>
+      <span class="stream-dot {{ 'active' if active[st] else '' }}"></span>
+      {{ st }}
+    </h3>
+    <p>Status: {{ "Streaming" if active[st] else "Stopped" }}</p>
+    {% if current_user.is_admin() %}
+    <div class="btn-row">
+      <form method="post" action="{{ url_for('realtime.start') }}">
+        <input type="hidden" name="source_type" value="{{ st }}">
+        <button type="submit" {% if active[st] %}disabled{% endif %}><i data-lucide="play"></i> Start</button>
+      </form>
+      <form method="post" action="{{ url_for('realtime.stop') }}">
+        <input type="hidden" name="source_type" value="{{ st }}">
+        <button type="submit" {% if not active[st] %}disabled{% endif %}><i data-lucide="square"></i> Stop</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<h2><i data-lucide="terminal"></i> Last tick status</h2>
+<pre id="statusBox" class="status-box"></pre>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function refreshStatus() {
+  const res = await fetch('/realtime/api/status');
+  const data = await res.json();
+  document.getElementById('statusBox').textContent = JSON.stringify(data, null, 2);
+}
+refreshStatus();
+setInterval(refreshStatus, 5000);
+</script>
+{% endblock %}

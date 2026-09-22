@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Processing - EarthScape{% endblock %}
+{% block content %}
+<h1><i data-lucide="cpu"></i> Data Processing (MapReduce)</h1>
+<p>Run a pattern/anomaly-detection job over ingested data. Groups records by station/region/sensor, computes stats, and flags outliers (|z-score| &ge; 2.5).</p>
+
+<form method="post" action="{{ url_for('processing.run') }}" class="form">
+  <label>Source type
+    <select name="source_type">
+      {% for st in source_types %}
+        <option value="{{ st }}">{{ st }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit"><i data-lucide="play"></i> Run Job</button>
+</form>
+
+{% for st, result in results.items() %}
+  <h2><i data-lucide="database"></i> {{ st }}</h2>
+  {% if result %}
+    <p>Last run: {{ result.generated_at }} &middot; blocks: {{ result.blocks_processed }} &middot; anomalies: {{ result.total_anomalies }}</p>
+    <div class="cards">
+      {% for g in result.groups %}
+        <div class="card">
+          <h3>{{ g.group_key }}</h3>
+          <p>count: {{ g.count }} | mean: {{ g.mean }} | min: {{ g.min }} | max: {{ g.max }} | stddev: {{ g.stddev }}</p>
+          {% if g.anomalies %}
+            <p><strong>Anomalies:</strong></p>
+            <ul>
+              {% for a in g.anomalies %}
+                <li>{{ a.timestamp }} &rarr; {{ a.value }} (z={{ a.z_score }})</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p>No job run yet for this source.</p>
+  {% endif %}
+{% endfor %}
+{% endblock %}

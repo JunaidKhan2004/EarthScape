@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Support - EarthScape{% endblock %}
+{% block content %}
+<h1><i data-lucide="life-buoy"></i> Feedback &amp; Support</h1>
+
+<div class="card">
+  <h3><i data-lucide="message-square-plus"></i> Submit a ticket</h3>
+  <form method="post" action="{{ url_for('support.create') }}" class="form">
+    <label>Category
+      <select name="category">
+        <option value="bug">Report an issue</option>
+        <option value="feedback">General feedback</option>
+        <option value="data">Data question</option>
+      </select>
+    </label>
+    <label>Message
+      <textarea name="message" rows="4" required></textarea>
+    </label>
+    <button type="submit"><i data-lucide="send"></i> Submit</button>
+  </form>
+</div>
+
+<h2><i data-lucide="inbox"></i> {{ "All Tickets" if current_user.is_admin() else "My Tickets" }}</h2>
+{% if tickets %}
+<table class="table">
+  <thead><tr><th>Date</th>{% if current_user.is_admin() %}<th>User</th>{% endif %}<th>Category</th><th>Message</th><th>Status</th><th>Response</th>{% if current_user.is_admin() %}<th></th>{% endif %}</tr></thead>
+  <tbody>
+    {% for t in tickets %}
+    <tr>
+      <td>{{ t.created_at }}</td>
+      {% if current_user.is_admin() %}<td>{{ t.user_email }}</td>{% endif %}
+      <td>{{ t.category }}</td>
+      <td>{{ t.message }}</td>
+      <td><span class="status-pill {{ 'resolved' if t.status == 'resolved' else 'open' }}">{{ t.status }}</span></td>
+      <td>{{ t.response or "-" }}</td>
+      {% if current_user.is_admin() %}
+      <td>
+        {% if t.status == "open" %}
+        <form method="post" action="{{ url_for('support.resolve', ticket_id=t._id) }}" class="inline-resolve-form">
+          <input type="text" name="response" placeholder="Response" required>
+          <button type="submit"><i data-lucide="check"></i></button>
+        </form>
+        {% endif %}
+      </td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty-hint">No tickets yet.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,9 @@
+{% extends "public/base_public.html" %}
+{% block title %}Something Went Wrong - EarthScape{% endblock %}
+{% block content %}
+<div class="public-hero-head">
+  <h1><i data-lucide="alert-triangle"></i> Something went wrong</h1>
+  <p>An unexpected error occurred. Please try again, or go back to the homepage.</p>
+  <p><a href="{{ url_for('public.index') }}">Go back to the homepage</a></p>
+</div>
+{% endblock %}

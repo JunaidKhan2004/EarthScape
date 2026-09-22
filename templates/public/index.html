@@ -1,0 +1,157 @@
+{% extends "public/base_public.html" %}
+{% block title %}EarthScape Climate Agency{% endblock %}
+{% block content %}
+
+<div class="sky-hero sky-hero-full" id="skyHero" data-condition="{{ weather.condition }}" data-is-day="{{ 'true' if weather.is_day else 'false' }}" data-clock="local">
+  <div class="sky-layer" id="skyLayer">
+    <div class="vanta-target" id="vantaClouds"></div>
+    <div class="stars" id="stars"></div>
+    <div id="rainLayer"></div>
+    <div class="lightning-flash" id="lightningFlash"></div>
+  </div>
+
+  <div class="sky-full-content">
+    <div class="sky-full-search">
+      <form id="citySearchForm" class="location-search">
+        <input type="text" id="citySearchInput" placeholder="Search a city (e.g. Lahore, London, Tokyo)" autocomplete="off">
+        <button type="submit" aria-label="Search"><i data-lucide="search"></i></button>
+      </form>
+      <button type="button" id="useMyLocationBtn" class="location-gps-btn" aria-label="Use my location" title="Use my location">
+        <i data-lucide="locate-fixed"></i>
+      </button>
+    </div>
+    <p class="location-error" id="locationError" hidden></p>
+
+    <div class="sky-full-main">
+      <div class="sky-clock">
+        <span class="sky-time" id="clockTime">--:--</span>
+        <span class="sky-date" id="clockDate">--</span>
+      </div>
+
+      <div class="sky-city"><i data-lucide="map-pin"></i> <span id="locationLabel">{{ weather.location_label }}</span></div>
+
+      <div class="sky-temp" id="skyTemp">{{ weather.temperature_c if weather.temperature_c is not none else "--" }}&deg;C</div>
+
+      <div class="sky-condition">
+        <i data-lucide="cloud" id="skyConditionIcon"></i>
+        <span id="skyConditionLabel">{{ weather.condition_label }}</span>
+      </div>
+
+      <div class="sky-meta">
+        <span><i data-lucide="droplets"></i> <span id="skyHumidity">{{ weather.humidity_pct if weather.humidity_pct is not none else "--" }}</span>% humidity</span>
+        <span class="sky-meta-sep"></span>
+        <span><i data-lucide="wind"></i> <span id="skyWind">{{ weather.wind_kmh if weather.wind_kmh is not none else "--" }}</span> km/h wind</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+{% if predictions %}
+<div class="public-hero-head" style="margin-top: 2.5rem;">
+  <h2><i data-lucide="calendar-clock"></i> 7-Day Climate Forecasts</h2>
+  <p>Admin-reviewed forecasts generated from real ingested climate data.</p>
+</div>
+<div class="cards">
+  {% for p in predictions %}
+  <div class="card forecast-card">
+    <h3><i data-lucide="map-pin"></i> {{ p.source_type | replace("_", " ") | title }} &middot; {{ p.group_key }}</h3>
+    <p class="forecast-meta">{{ p.metric | replace("_", " ") | title }} &middot; last observed <strong>{{ p.last_observed_value }}</strong></p>
+    <div class="forecast-days">
+      {% for day in p.forecast %}
+        <div class="forecast-day">
+          <span class="forecast-date">{{ day.date }}</span>
+          <span class="forecast-value">{{ day.predicted_value }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/vanta.clouds.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/sky-hero.js') }}"></script>
+<script>
+initSkyHero({ apiUrl: null }); // clock/stars/clouds only -- this page drives weather data itself below
+
+const CONDITION_ICONS = { rain: 'cloud-rain', storm: 'zap', cloudy: 'cloud', clear: 'sun' };
+
+function applyWeatherData(data) {
+  const hero = document.getElementById('skyHero');
+  hero.dataset.condition = data.condition;
+  hero.dataset.isDay = data.is_day ? 'true' : 'false';
+
+  document.getElementById('locationLabel').textContent = data.location_label;
+  document.getElementById('skyTemp').textContent = (data.temperature_c ?? '--') + '°C';
+  document.getElementById('skyConditionLabel').textContent = data.condition_label;
+  document.getElementById('skyHumidity').textContent = data.humidity_pct ?? '--';
+  document.getElementById('skyWind').textContent = data.wind_kmh ?? '--';
+
+  const iconEl = document.getElementById('skyConditionIcon');
+  iconEl.setAttribute('data-lucide', CONDITION_ICONS[data.condition] || 'cloud');
+  lucide.createIcons();
+
+  applySkyState(hero);
+}
+
+function showLocationError(message) {
+  const el = document.getElementById('locationError');
+  if (!message) {
+    el.hidden = true;
+    return;
+  }
+  el.textContent = message;
+  el.hidden = false;
+}
+
+async function fetchWeather(params) {
+  showLocationError('');
+  try {
+    const res = await fetch('/api/public-weather?' + new URLSearchParams(params));
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      showLocationError(err.error || 'Could not load weather for that location.');
+      return;
+    }
+    const data = await res.json();
+    applyWeatherData(data);
+  } catch (e) {
+    showLocationError('Could not reach the weather service. Check your connection.');
+  }
+}
+
+document.getElementById('citySearchForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const city = document.getElementById('citySearchInput').value.trim();
+  if (!city) return;
+  fetchWeather({ city });
+});
+
+document.getElementById('useMyLocationBtn').addEventListener('click', () => {
+  if (!navigator.geolocation) {
+    showLocationError('Your browser does not support location lookup.');
+    return;
+  }
+  showLocationError('Locating you...');
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      fetchWeather({
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        label: 'Your location',
+      });
+    },
+    () => {
+      showLocationError('Location access was denied. Try searching a city instead.');
+    },
+    { timeout: 8000 }
+  );
+});
+</script>
+{% endblock %}

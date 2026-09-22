@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}{{ "Register" if active_tab == "register" else "Login" }} - EarthScape{% endblock %}
+{% block content %}
+<div class="auth-split" id="authSplit" data-active="{{ active_tab }}">
+  <div class="auth-split-panel auth-split-illustration">
+    <div class="auth-illustration-bg"></div>
+    <img src="{{ url_for('static', filename='images/auth_illustration.png') }}" alt="EarthScape climate monitoring illustration" class="auth-illustration-img">
+    <div class="auth-illustration-caption">
+      <h2>Monitor climate data in real time</h2>
+      <p>Ingest, analyze, and forecast environmental data with EarthScape Climate Agency.</p>
+    </div>
+  </div>
+
+  <div class="auth-split-panel auth-split-forms">
+    <div class="auth-forms-inner">
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab" id="tabLogin" data-tab="login">Login</button>
+        <button type="button" class="auth-tab" id="tabRegister" data-tab="register">Register</button>
+        <span class="auth-tab-indicator" id="authTabIndicator"></span>
+      </div>
+
+      <div class="auth-form-pane" id="paneLogin">
+        <h1>Welcome back</h1>
+        <p>Sign in to access the EarthScape Climate Agency console.</p>
+
+        <form method="post" action="{{ url_for('auth.login') }}" class="form" id="loginForm" novalidate>
+          <div class="field-wrap" id="field-login-email">
+            <label for="login-email">Email</label>
+            <input type="email" id="login-email" name="email" placeholder="you@earthscape.org" required>
+            <span class="field-error"><i data-lucide="alert-circle"></i><span></span></span>
+          </div>
+
+          <div class="field-wrap" id="field-login-password">
+            <div class="field-label-row">
+              <label for="login-password">Password</label>
+              <a href="{{ url_for('auth.forgot_password') }}" class="field-link">Forgot password?</a>
+            </div>
+            <div class="password-field">
+              <input type="password" id="login-password" name="password" placeholder="Enter your password" required>
+              <button type="button" class="password-toggle" id="toggleLoginPassword" tabindex="-1" aria-label="Show password">
+                <i data-lucide="eye"></i>
+              </button>
+            </div>
+            <span class="field-error"><i data-lucide="alert-circle"></i><span></span></span>
+          </div>
+
+          <button type="submit"><i data-lucide="log-in"></i> Login</button>
+        </form>
+
+        <p class="auth-switch">No account? <a href="#" class="auth-switch-link" data-target="register">Register here</a></p>
+      </div>
+
+      <div class="auth-form-pane" id="paneRegister">
+        <h1>Create your account</h1>
+        <p>Join the EarthScape Climate Agency monitoring platform.</p>
+
+        <form method="post" action="{{ url_for('auth.register') }}" class="form" id="registerForm" novalidate>
+          <div class="field-wrap" id="field-register-name">
+            <label for="name">Full name</label>
+            <input type="text" id="name" name="name" placeholder="Jane Analyst" required>
+            <span class="field-error"><i data-lucide="alert-circle"></i><span></span></span>
+          </div>
+
+          <div class="field-wrap" id="field-register-email">
+            <label for="register-email">Email</label>
+            <input type="email" id="register-email" name="email" placeholder="you@earthscape.org" required>
+            <span class="field-error"><i data-lucide="alert-circle"></i><span></span></span>
+          </div>
+
+          <div class="field-wrap" id="field-register-password">
+            <label for="register-password">Password</label>
+            <div class="password-field">
+              <input type="password" id="register-password" name="password" placeholder="At least 6 characters" required minlength="6">
+              <button type="button" class="password-toggle" id="toggleRegisterPassword" tabindex="-1" aria-label="Show password">
+                <i data-lucide="eye"></i>
+              </button>
+            </div>
+            <div class="password-strength"><div class="password-strength-bar" id="strengthBar"></div></div>
+            <span class="field-hint">Use 6+ characters with a mix of letters, numbers &amp; symbols.</span>
+            <span class="field-error"><i data-lucide="alert-circle"></i><span></span></span>
+          </div>
+
+          <button type="submit"><i data-lucide="user-plus"></i> Create account</button>
+        </form>
+
+        <p class="auth-switch">Already have an account? <a href="#" class="auth-switch-link" data-target="login">Login here</a></p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/auth-form.js') }}"></script>
+<script>
+  initPasswordToggle('login-password', 'toggleLoginPassword');
+  initPasswordToggle('register-password', 'toggleRegisterPassword');
+  initPasswordStrength('register-password', 'strengthBar');
+
+  initFormValidation('loginForm', {
+    email: {
+      validate: (v) => (!v ? 'Email is required.' : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? 'Enter a valid email address.' : ''),
+    },
+    password: {
+      validate: (v) => (!v ? 'Password is required.' : ''),
+    },
+  }, 'login-');
+
+  initFormValidation('registerForm', {
+    name: {
+      validate: (v) => (!v.trim() ? 'Name is required.' : ''),
+    },
+    email: {
+      validate: (v) => (!v ? 'Email is required.' : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? 'Enter a valid email address.' : ''),
+    },
+    password: {
+      validate: (v) => (!v ? 'Password is required.' : v.length < 6 ? 'Password must be at least 6 characters.' : ''),
+    },
+  }, 'register-');
+
+  (function () {
+    const split = document.getElementById('authSplit');
+    const tabLogin = document.getElementById('tabLogin');
+    const tabRegister = document.getElementById('tabRegister');
+    const indicator = document.getElementById('authTabIndicator');
+
+    function setActive(tab, pushHistory) {
+      split.dataset.active = tab;
+      tabLogin.classList.toggle('active', tab === 'login');
+      tabRegister.classList.toggle('active', tab === 'register');
+      if (pushHistory) {
+        const url = tab === 'register' ? "{{ url_for('auth.register') }}" : "{{ url_for('auth.login') }}";
+        window.history.replaceState({}, '', url);
+      }
+    }
+
+    tabLogin.addEventListener('click', () => setActive('login', true));
+    tabRegister.addEventListener('click', () => setActive('register', true));
+
+    document.querySelectorAll('.auth-switch-link').forEach((link) => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        setActive(link.dataset.target, true);
+      });
+    });
+
+    setActive(split.dataset.active, false);
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard - EarthScape{% endblock %}
+{% block content %}
+
+<div class="sky-hero" id="skyHero" data-condition="{{ weather.condition }}" data-is-day="{{ 'true' if weather.is_day else 'false' }}">
+  <div class="sky-layer" id="skyLayer">
+    <div class="vanta-target" id="vantaClouds"></div>
+    <div class="stars" id="stars"></div>
+    <div id="rainLayer"></div>
+    <div class="lightning-flash" id="lightningFlash"></div>
+  </div>
+
+  <div class="sky-content">
+    <div>
+      <div class="sky-city"><i data-lucide="map-pin"></i> Karachi, Pakistan</div>
+      <div class="sky-time" id="clockTime">--:--</div>
+      <div class="sky-date" id="clockDate">--</div>
+    </div>
+    <div class="sky-weather">
+      <div class="sky-temp">{{ weather.temperature_c if weather.temperature_c is not none else "--" }}&deg;C</div>
+      <div class="sky-condition">
+        <i data-lucide="{{ 'cloud-rain' if weather.condition == 'rain' else 'zap' if weather.condition == 'storm' else 'cloud' if weather.condition == 'cloudy' else 'sun' }}"></i>
+        {{ weather.condition_label }}
+      </div>
+    </div>
+  </div>
+
+  <div class="sky-meta">
+    <span><i data-lucide="droplets"></i> {{ weather.humidity_pct if weather.humidity_pct is not none else "--" }}% humidity</span>
+    <span><i data-lucide="wind"></i> {{ weather.wind_kmh if weather.wind_kmh is not none else "--" }} km/h wind</span>
+  </div>
+</div>
+
+<div class="welcome-row">
+  <div class="welcome-avatar">{{ user.name[0]|upper if user.name else "U" }}</div>
+  <div>
+    <h1 class="welcome-title">Admin Control Center &mdash; {{ user.name }}</h1>
+    <div class="welcome-meta">
+      <span class="role-badge">administrator</span>
+      <span class="welcome-sep">&middot;</span>
+      <span>Review analyst submissions and manage the platform</span>
+    </div>
+  </div>
+</div>
+
+{% if pending_predictions %}
+<div class="card" style="border-color: var(--danger-border); margin-bottom: 1.5rem;">
+  <h3><i data-lucide="alert-triangle"></i> {{ pending_predictions | length }} forecast(s) awaiting your approval</h3>
+  <p>Analysts have submitted 7-day forecasts that are not yet visible to the public.</p>
+  <a href="{{ url_for('predictions.index') }}" class="nav-cta" style="display:inline-flex;">Review Now</a>
+</div>
+{% endif %}
+
+<div class="stat-grid">
+  <div class="stat-tile">
+    <div class="stat-tile-top"><div class="stat-icon"><i data-lucide="database"></i></div></div>
+    <div>
+      <div class="stat-value" id="statRecords">{{ stats.total_records }}</div>
+      <div class="stat-label">Records ingested</div>
+    </div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-tile-top"><div class="stat-icon"><i data-lucide="cpu"></i></div></div>
+    <div>
+      <div class="stat-value" id="statJobs">{{ stats.jobs_run }}</div>
+      <div class="stat-label">Processing jobs run</div>
+    </div>
+  </div>
+  <div class="stat-tile {{ 'stat-tile-warn' if stats.active_alerts > 0 else '' }}">
+    <div class="stat-tile-top"><div class="stat-icon"><i data-lucide="bell-ring"></i></div></div>
+    <div>
+      <div class="stat-value" id="statAlerts">{{ stats.active_alerts }}</div>
+      <div class="stat-label">Unacknowledged alerts</div>
+    </div>
+  </div>
+  <div class="stat-tile {{ 'stat-tile-warn' if pending_predictions else '' }}">
+    <div class="stat-tile-top"><div class="stat-icon"><i data-lucide="calendar-clock"></i></div></div>
+    <div>
+      <div class="stat-value">{{ pending_predictions | length }}</div>
+      <div class="stat-label">Forecasts pending approval</div>
+    </div>
+  </div>
+  <div class="stat-tile {{ 'stat-tile-live' if stats.active_streams > 0 else '' }}" id="streamsTile">
+    <div class="stat-tile-top">
+      <div class="stat-icon"><i data-lucide="radio"></i></div>
+      <span class="stat-live-pill">Live</span>
+    </div>
+    <div>
+      <div class="stat-value" id="statStreams">{{ stats.active_streams }}</div>
+      <div class="stat-label">Live streams running</div>
+    </div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-tile-top"><div class="stat-icon"><i data-lucide="sliders-horizontal"></i></div></div>
+    <div>
+      <div class="stat-value" id="statThresholds">{{ stats.active_thresholds }}</div>
+      <div class="stat-label">Active thresholds</div>
+    </div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-tile-top"><div class="stat-icon"><i data-lucide="users"></i></div></div>
+    <div>
+      <div class="stat-value" id="statUsers">{{ stats.total_users }}</div>
+      <div class="stat-label">Registered users</div>
+    </div>
+  </div>
+  <div class="stat-tile">
+    <div class="stat-tile-top"><div class="stat-icon"><i data-lucide="life-buoy"></i></div></div>
+    <div>
+      <div class="stat-value">{{ stats.open_tickets }}</div>
+      <div class="stat-label">Open support tickets</div>
+    </div>
+  </div>
+</div>
+
+<div class="cards cards-2col">
+  <div class="card chart-card">
+    <h3><i data-lucide="database"></i> Records ingested by source</h3>
+    <div class="chart-wrap"><canvas id="recordsBySourceChart"></canvas></div>
+  </div>
+  <div class="card chart-card">
+    <h3><i data-lucide="activity"></i> Platform activity, last 7 days</h3>
+    <div class="chart-wrap"><canvas id="activityTrendChart"></canvas></div>
+  </div>
+</div>
+
+<div class="dash-split">
+  <div class="dash-main">
+    <h2><i data-lucide="shield-check"></i> Administration</h2>
+    <div class="cards">
+      <a href="{{ url_for('predictions.index') }}" class="card-link">
+        <div class="card">
+          <h3><i data-lucide="calendar-clock"></i> Approve Predictions</h3>
+          <p>Review analyst-submitted forecasts before they go public.</p>
+        </div>
+      </a>
+      <a href="{{ url_for('users.index') }}" class="card-link">
+        <div class="card">
+          <h3><i data-lucide="users"></i> User Management</h3>
+          <p>Review registered users and assign administrator/analyst roles.</p>
+        </div>
+      </a>
+      <a href="{{ url_for('alerts.index') }}" class="card-link">
+        <div class="card">
+          <h3><i data-lucide="bell-ring"></i> Alerts &amp; Thresholds</h3>
+          <p>Configure thresholds and review triggered climate alerts.</p>
+        </div>
+      </a>
+      <a href="{{ url_for('realtime.index') }}" class="card-link">
+        <div class="card">
+          <h3><i data-lucide="radio"></i> Real-time Streams</h3>
+          <p>Start or stop the simulated live feed pipelines.</p>
+        </div>
+      </a>
+      <a href="{{ url_for('support.index') }}" class="card-link">
+        <div class="card">
+          <h3><i data-lucide="life-buoy"></i> Support Tickets</h3>
+          <p>Resolve feedback and issues reported by users.</p>
+        </div>
+      </a>
+      <a href="{{ url_for('viz.index') }}" class="card-link">
+        <div class="card">
+          <h3><i data-lucide="bar-chart-3"></i> Visualization</h3>
+          <p>Explore interactive charts built from the latest analysis runs.</p>
+        </div>
+      </a>
+      <a href="{{ url_for('ingestion.index') }}" class="card-link">
+        <div class="card">
+          <h3><i data-lucide="upload-cloud"></i> Data Ingestion</h3>
+          <p>View or add climate datasets.</p>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <div class="dash-side">
+    <h2><i data-lucide="calendar-clock"></i> Pending Approvals</h2>
+    <div class="activity-feed">
+      {% if pending_predictions %}
+        {% for p in pending_predictions[:6] %}
+          <div class="activity-row">
+            <div class="activity-icon activity-icon-job"><i data-lucide="calendar-clock"></i></div>
+            <div class="activity-body">
+              <div class="activity-text">{{ p.source_type }} &middot; {{ p.group_key }} &mdash; by {{ p.created_by }}</div>
+              <div class="activity-time">{{ p.created_at }}</div>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="empty-hint">No pending forecasts. All caught up.</p>
+      {% endif %}
+    </div>
+
+    <h2 style="margin-top: 1.5rem;"><i data-lucide="activity"></i> Recent Activity</h2>
+    <div class="activity-feed" id="activityFeed">
+      {% if activity %}
+        {% for ev in activity %}
+          <div class="activity-row">
+            <div class="activity-icon activity-icon-{{ ev.type }}"><i data-lucide="{{ ev.icon }}"></i></div>
+            <div class="activity-body">
+              <div class="activity-text">{{ ev.text }}</div>
+              <div class="activity-time">{{ ev.time_ago }}</div>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="empty-hint">No activity yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/three.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/vanta.clouds.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/sky-hero.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+<script>
+initSkyHero();
+
+let recordsBySourceChart, activityTrendChart;
+
+function chartColors() {
+  const styles = getComputedStyle(document.documentElement);
+  return {
+    text: styles.getPropertyValue('--text-muted').trim() || '#9FB8D4',
+    grid: styles.getPropertyValue('--border').trim() || 'rgba(94, 168, 224, 0.22)',
+  };
+}
+
+async function loadOverviewCharts() {
+  try {
+    const res = await fetch('/dashboard/api/overview-charts');
+    const data = await res.json();
+    const c = chartColors();
+
+    const recordsCtx = document.getElementById('recordsBySourceChart');
+    if (recordsBySourceChart) recordsBySourceChart.destroy();
+    recordsBySourceChart = new Chart(recordsCtx, {
+      type: 'bar',
+      data: {
+        labels: data.records_by_source.labels.map(l => l.replace('_', ' ')),
+        datasets: [{ label: 'Records', data: data.records_by_source.values, backgroundColor: '#B6BBC4', borderRadius: 4 }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 500 },
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: c.text }, grid: { display: false } },
+          y: { ticks: { color: c.text }, grid: { color: c.grid }, beginAtZero: true },
+        },
+      },
+    });
+
+    const trendCtx = document.getElementById('activityTrendChart');
+    if (activityTrendChart) activityTrendChart.destroy();
+    activityTrendChart = new Chart(trendCtx, {
+      type: 'line',
+      data: {
+        labels: data.activity_trend.labels,
+        datasets: [
+          { label: 'Jobs run', data: data.activity_trend.jobs, borderColor: '#B6BBC4', backgroundColor: 'transparent', tension: 0.35 },
+          { label: 'Alerts', data: data.activity_trend.alerts, borderColor: '#FB7185', backgroundColor: 'transparent', tension: 0.35 },
+          { label: 'Tickets', data: data.activity_trend.tickets, borderColor: '#34D399', backgroundColor: 'transparent', tension: 0.35 },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 500 },
+        plugins: { legend: { labels: { color: c.text, boxWidth: 12, padding: 14 } } },
+        scales: {
+          x: { ticks: { color: c.text }, grid: { display: false } },
+          y: { ticks: { color: c.text, precision: 0 }, grid: { color: c.grid }, beginAtZero: true },
+        },
+      },
+    });
+  } catch (e) {}
+}
+
+loadOverviewCharts();
+const themeBtnDash = document.getElementById('themeToggle');
+if (themeBtnDash) themeBtnDash.addEventListener('click', () => setTimeout(loadOverviewCharts, 50));
+
+async function refreshStats() {
+  try {
+    const res = await fetch('/dashboard/api/stats');
+    const s = await res.json();
+    document.getElementById('statRecords').textContent = s.total_records;
+    document.getElementById('statJobs').textContent = s.jobs_run;
+    document.getElementById('statAlerts').textContent = s.active_alerts;
+    document.getElementById('statStreams').textContent = s.active_streams;
+    document.getElementById('statThresholds').textContent = s.active_thresholds;
+    document.getElementById('statUsers').textContent = s.total_users;
+    document.getElementById('streamsTile').classList.toggle('stat-tile-live', s.active_streams > 0);
+  } catch (e) {}
+}
+
+async function refreshActivity() {
+  try {
+    const res = await fetch('/dashboard/api/activity');
+    const events = await res.json();
+    const feed = document.getElementById('activityFeed');
+    if (!events.length) return;
+    feed.innerHTML = events.map(ev => `
+      <div class="activity-row">
+        <div class="activity-icon activity-icon-${ev.type}"><i data-lucide="${ev.icon}"></i></div>
+        <div class="activity-body">
+          <div class="activity-text">${ev.text}</div>
+          <div class="activity-time">${ev.time_ago}</div>
+        </div>
+      </div>
+    `).join('');
+    lucide.createIcons();
+  } catch (e) {}
+}
+
+setInterval(refreshStats, 20000);
+setInterval(refreshActivity, 20000);
+</script>
+{% endblock %}

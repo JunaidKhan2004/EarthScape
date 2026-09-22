@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Predictions - EarthScape{% endblock %}
+{% block content %}
+<h1><i data-lucide="calendar-clock"></i> 7-Day Predictions</h1>
+{% if current_user.is_admin() %}
+<p>Review forecasts submitted by analysts. Approved forecasts appear on the public website.</p>
+{% else %}
+<p>Generate a 7-day forecast from ingested data. Submitted forecasts need admin approval before they go public.</p>
+{% endif %}
+
+{% if not current_user.is_admin() %}
+<div class="card">
+  <h3><i data-lucide="wand-2"></i> Generate Forecast</h3>
+  <form method="post" action="{{ url_for('predictions.generate') }}" class="form">
+    <label>Source type
+      <select name="source_type">
+        {% for st in source_types %}<option value="{{ st }}">{{ st }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Group / location key (optional)
+      <input type="text" name="group_key" placeholder="e.g. WS001, north, or leave blank for all">
+    </label>
+    <button type="submit"><i data-lucide="play"></i> Generate 7-Day Forecast</button>
+  </form>
+</div>
+{% endif %}
+
+<h2><i data-lucide="list-checks"></i> {{ "All Predictions" if current_user.is_admin() else "My Predictions" }}</h2>
+{% if predictions %}
+<div class="cards">
+  {% for p in predictions %}
+  <div class="card">
+    <h3>{{ p.source_type }} &middot; {{ p.group_key }}</h3>
+    <p>
+      <span class="status-pill {{ 'resolved' if p.status == 'approved' else 'open' if p.status == 'pending' else '' }}">{{ p.status }}</span>
+      &middot; by {{ p.created_by }} &middot; {{ p.created_at }}
+    </p>
+    {% if p.metrics %}
+      <p class="muted">MAE: {{ p.metrics.mae }} &middot; RMSE: {{ p.metrics.rmse }} &middot; R&sup2;: {{ p.metrics.r2 if p.metrics.r2 is not none else "n/a" }}</p>
+    {% endif %}
+    <ul>
+      {% for day in p.forecast %}
+        <li>{{ day.date }}: {{ day.predicted_value }} {{ p.metric }}</li>
+      {% endfor %}
+    </ul>
+    {% if current_user.is_admin() and p.status == "pending" %}
+    <div class="inline-resolve-form">
+      <form method="post" action="{{ url_for('predictions.approve', prediction_id=p._id) }}">
+        <button type="submit"><i data-lucide="check"></i> Approve</button>
+      </form>
+      <form method="post" action="{{ url_for('predictions.reject', prediction_id=p._id) }}">
+        <button type="submit"><i data-lucide="x"></i> Reject</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="empty-hint">No predictions yet.</p>
+{% endif %}
+{% endblock %}

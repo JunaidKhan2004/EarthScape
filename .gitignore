@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
+*.egg-info/
+.DS_Store
+app/hdfs_sim/raw/*
+app/hdfs_sim/processed/*
+!app/hdfs_sim/raw/.gitkeep
+!app/hdfs_sim/processed/.gitkeep
